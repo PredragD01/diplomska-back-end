@@ -12,6 +12,8 @@ import com.mailautomation.mailautomation.repositories.EmployeeRepositoryService;
 import com.mailautomation.mailautomation.repositories.FileRepositoryService;
 import com.mailautomation.mailautomation.repositories.MailRepositoryService;
 import com.mailautomation.mailautomation.requests.Requests;
+import fr.opensagres.poi.xwpf.converter.pdf.PdfConverter;
+import fr.opensagres.poi.xwpf.converter.pdf.PdfOptions;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.xwpf.usermodel.*;
@@ -95,15 +97,16 @@ public class FileServiceImpl implements FileService {
     }
     ///
     public void generateGodishen(Requests req) throws IOException, InvalidFormatException, MessagingException {
-        FileInputStream fis = new FileInputStream("templates\\godishenodmorNew.docx");
+        InputStream fis  = new FileInputStream("templates/godishenodmorNew.docx");
         XWPFDocument doc = new XWPFDocument(OPCPackage.open(fis));
         EmployeeDto employeeDto = ers.getEmployeeByEmail(req.getMail_info().getSender_adress());
-//        List<XWPFParagraph> paragraphList = doc.getParagraphs();
-        for (XWPFParagraph p : doc.getParagraphs()) {
+        List<XWPFParagraph> paragraphList = doc.getParagraphs();
+        for (XWPFParagraph p : paragraphList) {
             List<XWPFRun> runs = p.getRuns();
 
             for (XWPFRun r : runs) {
                 String text = r.getText(0);
+                System.out.println(text);
                 if (text != null) {
                     if (text.contains("firstN")) {
                         r.setBold(true);
@@ -179,20 +182,17 @@ public class FileServiceImpl implements FileService {
                 }
             }
         }
-        doc.write(new FileOutputStream("generatedPDFs\\godishenodmorNOV.docx"));
-        File inputWord = new File("generatedPDFs\\godishenodmorNOV.docx");
-        File outputFile = new File("generatedPDFs\\generated.pdf");
-            InputStream docxInputStream = new FileInputStream(inputWord);
-            OutputStream outputStream = new FileOutputStream(outputFile);
-            IConverter converter = LocalConverter.builder().build();
-            converter.convert(docxInputStream).as(DocumentType.DOCX).to(outputStream).as(DocumentType.PDF).execute();
-            outputStream.close();
-            System.out.println("success");
-            byte[] array = Files.readAllBytes(Paths.get(String.valueOf(outputFile)));
-            String date = new SimpleDateFormat("dd.MM.yyyy").format(new Date());
-            frs.storePDF(array, employeeDto.getEmployee().getId(),date,req.getMail_info().getSubject_mail());
-            ms.sendEmail("Вашето барање е прифатено од страна на тим менаџерот", employeeDto.getEmployee().getEmail());
-            mrs.deleteEmail(req.getMail_info().getId());
+        
+        PdfOptions options = PdfOptions.create().fontEncoding("windows-1250");;
+        OutputStream out = new FileOutputStream(new File("generatedPDFs/generated.pdf"));
+        PdfConverter.getInstance().convert(doc, out, options);
+        System.out.println("success");
+        byte[] array = Files.readAllBytes(Paths.get("generatedPDFs/generated.pdf"));
+        System.out.println(new String(array, 0));
+        String date = new SimpleDateFormat("dd.MM.yyyy").format(new Date());
+        frs.storePDF(array, employeeDto.getEmployee().getId(),date,req.getMail_info().getSubject_mail());
+        ms.sendEmail("Вашето барање е прифатено од страна на тим менаџерот", employeeDto.getEmployee().getEmail());
+        mrs.deleteEmail(req.getMail_info().getId());
 
     }
 
